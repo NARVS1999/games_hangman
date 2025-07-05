@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hangman Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Press Start 2P', cursive;
+        }
+        .hangman-drawing {
+            white-space: pre;
+            line-height: 1.2;
+            font-size: 18px;
+        }
+        .letter-input {
+            width: 50px;
+            text-align: center;
+            font-size: 24px;
+        }
+        .win-message {
+            animation: bounce 0.5s infinite alternate;
+        }
+        @keyframes bounce {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-5px); }
+        }
+        .shake {
+            animation: shake 0.5s;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+    </style>
+</head>
+<body class="bg-green-50 min-h-screen flex flex-col items-center justify-center p-4">
+    <div class="text-center max-w-md">
+        <h1 class="text-2xl md:text-3xl mb-6 text-green-800">⚰️ HANGMAN 🔤</h1>
+        
+        <div class="bg-green-100 rounded-lg p-6 mb-6 shadow-md">
+            <div id="wordDisplay" class="text-2xl mb-4 tracking-widest">_ _ _ _ _ _</div>
+            <div id="guessedLetters" class="text-sm mb-4 text-green-700">Guessed Letters: </div>
+            <div id="livesLeft" class="text-xl mb-4">Lives Left: ❤️❤️❤️❤️❤️❤️</div>
+            
+            <pre id="hangmanDrawing" class="hangman-drawing mb-4" >
+                _______
+                |     |
+                |     
+                |    
+                |    
+              __|__
+            </pre>
+            
+            <div id="hint" class="text-sm mb-4 text-green-600">Hint: </div>
+        </div>
+        
+        <div class="flex flex-col items-center gap-3 mb-6">
+            <input 
+                id="letterInput" 
+                type="text" 
+                maxlength="1" 
+                class="letter-input bg-green-100 border-2 border-green-300 rounded-lg p-2 text-center uppercase"
+                placeholder="?"
+            >
+            <button 
+                id="guessButton" 
+                class="bg-green-600 hover:bg-green-700 text-white py-2 px-6 rounded-lg transition-colors duration-200"
+            >
+                🔠 ENTER LETTER
+            </button>
+        </div>
+        
+        <div id="message" class="text-xl mb-4 hidden"></div>
+        
+        <button 
+            id="resetButton" 
+            class="bg-green-600 hover:bg-green-700 text-white py-2 px-6 rounded-lg transition-colors duration-200"
+        >
+            RESET GAME
+        </button>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const wordDisplay = document.getElementById('wordDisplay');
+            const guessedLettersDisplay = document.getElementById('guessedLetters');
+            const livesLeftDisplay = document.getElementById('livesLeft');
+            const hangmanDrawing = document.getElementById('hangmanDrawing');
+            const hintDisplay = document.getElementById('hint');
+            const letterInput = document.getElementById('letterInput');
+            const guessButton = document.getElementById('guessButton');
+            const message = document.getElementById('message');
+            const resetButton = document.getElementById('resetButton');
+            
+            // Game words with hints
+            const words = [
+                { word: "BANANA", hint: "It's a fruit 🍌" },
+                { word: "ELEPHANT", hint: "Large gray animal 🐘" },
+                { word: "MOUNTAIN", hint: "Natural elevation ⛰️" },
+                { word: "SUNFLOWER", hint: "Yellow flower 🌻" },
+                { word: "KEYBOARD", hint: "Computer input device ⌨️" }
+            ];
+            
+            let currentWord;
+            let guessedLetters;
+            let lives;
+            let gameActive;
+            
+            // Hangman drawing stages
+            const hangmanStages = [
+                `
+  _______
+  |     |
+  |     
+  |    
+  |    
+__|__
+                `,
+                `
+  _______
+  |     |
+  |     😟
+  |    
+  |    
+__|__
+                `,
+                `
+  _______
+  |     |
+  |     😟
+  |     |
+  |    
+__|__
+                `,
+                `
+  _______
+  |     |
+  |     😟
+  |    /|
+  |    
+__|__
+                `,
+                `
+  _______
+  |     |
+  |     😟
+  |    /|\\
+  |    
+__|__
+                `,
+                `
+  _______
+  |     |
+  |     😟
+  |    /|\\
+  |    / 
+__|__
+                `,
+                `
+  _______
+  |     |
+  |     😵
+  |    /|\\
+  |    / \\
+__|__
+                `
+            ];
+            
+            // Initialize game
+            function initGame() {
+                // Select random word
+                currentWord = words[Math.floor(Math.random() * words.length)];
+                guessedLetters = [];
+                lives = 6;
+                gameActive = true;
+                
+                // Update displays
+                updateWordDisplay();
+                guessedLettersDisplay.textContent = "Guessed Letters: ";
+                livesLeftDisplay.textContent = "Lives Left: " + "❤️".repeat(lives) + "🖤".repeat(6 - lives);
+                hangmanDrawing.textContent = hangmanStages[0];
+                hintDisplay.textContent = "Hint: " + currentWord.hint;
+                message.classList.add('hidden');
+                letterInput.value = '';
+                letterInput.focus();
+            }
+            
+            // Update word display with blanks and guessed letters
+            function updateWordDisplay() {
+                const display = currentWord.word.split('').map(letter => 
+                    guessedLetters.includes(letter) ? letter : '_'
+                ).join(' ');
+                wordDisplay.textContent = display;
+                return display;
+            }
+            
+            // Check if player has won
+            function checkWin() {
+                const display = updateWordDisplay();
+                if (!display.includes('_')) {
+                    gameActive = false;
+                    message.textContent = "🎉 You Win! 🎉";
+                    message.className = "text-xl mb-4 text-green-600 win-message";
+                    message.classList.remove('hidden');
+                    return true;
+                }
+                return false;
+            }
+            
+            // Update hangman drawing
+            function updateHangman() {
+                const stageIndex = 6 - lives;
+                hangmanDrawing.textContent = hangmanStages[stageIndex];
+                
+                if (stageIndex === 6) {
+                    gameActive = false;
+                    message.textContent = `Game Over! The word was: ${currentWord.word}`;
+                    message.className = "text-xl mb-4 text-red-600";
+                    message.classList.remove('hidden');
+                }
+            }
+            
+            // Handle letter guess
+            function guessLetter(letter) {
+                if (!gameActive) return;
+                
+                letter = letter.toUpperCase();
+                
+                // Validate input
+                if (!letter.match(/[A-Z]/)) {
+                    message.textContent = "Please enter a valid letter!";
+                    message.className = "text-xl mb-4 text-red-600 shake";
+                    message.classList.remove('hidden');
+                    setTimeout(() => message.classList.add('hidden'), 1000);
+                    return;
+                }
+                
+                // Check if letter was already guessed
+                if (guessedLetters.includes(letter)) {
+                    message.textContent = "You already guessed that letter!";
+                    message.className = "text-xl mb-4 text-yellow-600 shake";
+                    message.classList.remove('hidden');
+                    setTimeout(() => message.classList.add('hidden'), 1000);
+                    return;
+                }
+                
+                // Add to guessed letters
+                guessedLetters.push(letter);
+                guessedLettersDisplay.textContent = "Guessed Letters: " + guessedLetters.join(', ');
+                
+                // Check if letter is in word
+                if (!currentWord.word.includes(letter)) {
+                    lives--;
+                    livesLeftDisplay.textContent = "Lives Left: " + "❤️".repeat(lives) + "🖤".repeat(6 - lives);
+                    updateHangman();
+                }
+                
+                // Update word display and check win
+                updateWordDisplay();
+                if (!checkWin()) {
+                    letterInput.value = '';
+                    letterInput.focus();
+                }
+            }
+            
+            // Event listeners
+            guessButton.addEventListener('click', () => {
+                guessLetter(letterInput.value);
+            });
+            
+            letterInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    guessLetter(letterInput.value);
+                }
+            });
+            
+            resetButton.addEventListener('click', initGame);
+            
+            // Start the game
+            initGame();
+        });
+    </script>
+</body>
+</html>
