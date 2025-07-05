@@ -9,7 +9,7 @@ features:
 - Letter input
 - Lives counter (hangman stages)
 
-Demo: 
+Demo: https://narvs1999.github.io/games_hangman/
 
 ![Demo Image](demo-image.png)
 
